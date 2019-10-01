@@ -11,7 +11,7 @@ import (
 var targetFramerate time.Duration
 
 func init() {
-	targetFramerate = time.Second / time.Duration(30)
+	targetFramerate = time.Second / time.Duration(15)
 }
 
 func main() {

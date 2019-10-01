@@ -81,7 +81,7 @@ func CreateCat(renderer *sdl.Renderer) *Cat {
 	img.Free()
 
 	cat := &Cat{
-		maxSpeed:         8,
+		maxSpeed:         8 * 2,
 		renderer:         renderer,
 		texture:          texture,
 		spriteWidth:      imgWidth,
@@ -163,13 +163,14 @@ func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed
 	}
 
 	//handle 'gravity'
-	c.Velocity.Down = c.Velocity.Down + 0.5
+	c.Velocity.Down++
 
 	isFalling := true
 	//detect 'platform'
-	if c.PosY+int32(c.Velocity.Down) > (displayHeight - c.Height - 1) {
+	if c.PosY+c.frameHeight/4 >= displayHeight-1 {
 		isFalling = false
 		c.Velocity.Down = 0
+		c.PosY = displayHeight - c.frameHeight/4
 	} else {
 		// falling
 		if c.Velocity.Down > c.maxSpeed/2 {
@@ -182,20 +183,18 @@ func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed
 		c.PosY = c.PosY + int32(c.Velocity.Down)
 	}
 
-	// handle movement
-
 	// jumping
 	if !isFalling && hasUpPressed && c.JumpedAt.Add(JumpFreq).Before(time.Now()) {
 		c.currentActionIdx = Running
 		c.currentFrameIdx = 11
 		c.JumpedAt = time.Now()
-		c.Velocity.Up = c.Velocity.Up + c.maxSpeed*3
+		c.Velocity.Up = c.Velocity.Up + c.maxSpeed*2
 	}
 	if c.Velocity.Up > 0 {
-		// the effect here is that holding jump will jump a _bit_ higher
+		// the effect here is that holding jump will jump a little higher
 		c.currentActionIdx = Running
 		if hasUpPressed {
-			c.Velocity.Up = c.Velocity.Up - 0.1
+			c.Velocity.Up = c.Velocity.Up - 0.06
 			c.currentFrameIdx = 12
 		} else {
 			c.Velocity.Up = c.Velocity.Up - c.Velocity.Down
@@ -206,7 +205,6 @@ func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed
 		newY := c.PosY - int32(c.Velocity.Up)
 		if newY < 0 {
 			newY = 0
-		} else {
 		}
 		c.PosY = newY
 	}
@@ -308,7 +306,7 @@ func (c *Cat) Draw() {
 	}
 
 	// flip options: sdl.FLIP_NONE, sdl.FLIP_HORIZONTAL, sdl.SDL_FLIP_VERTICAL, sdl.FLIP_HORIZONTAL | sdl.SDL_FLIP_VERTICAL
-	err := c.renderer.CopyEx(c.texture, frameRect, &sdl.Rect{c.PosX, c.PosY, c.frameWidth / 8, c.frameHeight / 8}, c.angle, nil, c.direction)
+	err := c.renderer.CopyEx(c.texture, frameRect, &sdl.Rect{c.PosX, c.PosY, c.frameWidth / 4, c.frameHeight / 4}, c.angle, nil, c.direction)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to renderer.CopyEx texture: %s\n", err)
 		os.Exit(5)
