@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"time"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -11,6 +12,14 @@ import (
 
 const defaultColor = uint32(0x44ff99)
 const crashColor = uint32(0xff0000)
+const JumpFreq = time.Second / 4
+
+const (
+	Sitting       = 1
+	Walking       = 0
+	Transitioning = 2
+	Running       = 3
+)
 
 type Cat struct {
 	renderer     *sdl.Renderer
@@ -26,9 +35,8 @@ type Cat struct {
 	catActionFrames  map[string][]Frame
 
 	direction sdl.RendererFlip
-	maxSpeed  int32
-
-	currentColor uint32
+	maxSpeed  float64
+	JumpedAt  time.Time
 
 	PosX   int32
 	PosY   int32
@@ -39,10 +47,10 @@ type Cat struct {
 }
 
 type Velocity struct {
-	Up    int32
-	Down  int32
-	Left  int32
-	Right int32
+	Up    float64
+	Down  float64
+	Left  float64
+	Right float64
 }
 
 type Frame struct {
@@ -78,11 +86,10 @@ func CreateCat(renderer *sdl.Renderer) *Cat {
 		texture:          texture,
 		spriteWidth:      imgWidth,
 		spriteHeight:     imgHeight,
-		currentColor:     defaultColor,
 		frameWidth:       imgWidth / 4,   // there are 4 columns of frames
 		frameHeight:      imgHeight / 13, // there are 13 columns of frames
 		direction:        Right,
-		currentActionIdx: 3,
+		currentActionIdx: Sitting,
 		PosX:             100,
 		PosY:             150,
 		Height:           20,
@@ -136,122 +143,158 @@ func (c *Cat) LoadAnimationFrames() error {
 
 func (c *Cat) Action() string {
 	switch c.currentActionIdx {
-	case 0:
+	case Walking:
 		return "walking"
-	case 1:
+	case Sitting:
 		return "sitting"
-	case 2:
+	case Transitioning:
 		return "transitioning"
 	default:
 		return "running"
 	}
 }
 
-func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed bool, displayWidth, displayHeight int32) {
+func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed, hasSpacebarPressed bool, displayWidth, displayHeight int32) {
 	//fmt.Printf("hasUpPressed: %t, hasDownPressed: %t, hasLeftPressed: %t, hasRightPressed: %t, displayWidth: %d, displayHeight: %d\n", hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed, displayWidth, displayHeight)
-	if hasUpPressed {
-		c.Velocity.Up = int32(math.Min(float64(c.Velocity.Up+1), float64(c.maxSpeed)))
+
+	// handle jump
+	if hasSpacebarPressed {
+		hasUpPressed = true
+	}
+
+	//handle 'gravity'
+	c.Velocity.Down = c.Velocity.Down + 0.5
+
+	isFalling := true
+	//detect 'platform'
+	if c.PosY+int32(c.Velocity.Down) > (displayHeight - c.Height - 1) {
+		isFalling = false
+		c.Velocity.Down = 0
+	} else {
+		// falling
+		if c.Velocity.Down > c.maxSpeed/2 {
+			c.currentFrameIdx = 3
+			c.currentActionIdx = Running
+		}
+		if c.Velocity.Down > c.maxSpeed {
+			c.currentFrameIdx = 2
+		}
+		c.PosY = c.PosY + int32(c.Velocity.Down)
+	}
+
+	// handle movement
+
+	// jumping
+	if !isFalling && hasUpPressed && c.JumpedAt.Add(JumpFreq).Before(time.Now()) {
+		c.currentActionIdx = Running
+		c.currentFrameIdx = 11
+		c.JumpedAt = time.Now()
+		c.Velocity.Up = c.Velocity.Up + c.maxSpeed*3
 	}
 	if c.Velocity.Up > 0 {
-		if !hasUpPressed {
-			c.Velocity.Up--
+		// the effect here is that holding jump will jump a _bit_ higher
+		c.currentActionIdx = Running
+		if hasUpPressed {
+			c.Velocity.Up = c.Velocity.Up - 0.1
+			c.currentFrameIdx = 12
+		} else {
+			c.Velocity.Up = c.Velocity.Up - c.Velocity.Down
+			c.currentFrameIdx = 0
 		}
-		newY := c.PosY - c.Velocity.Up
+		c.Velocity.Up = c.Velocity.Up / 1.2
+
+		newY := c.PosY - int32(c.Velocity.Up)
 		if newY < 0 {
 			newY = 0
-			c.currentColor = crashColor
 		} else {
-			c.currentColor = defaultColor
 		}
 		c.PosY = newY
 	}
 
-	if hasDownPressed {
-		c.Velocity.Down = int32(math.Min(float64(c.Velocity.Down+1), float64(c.maxSpeed)))
-	}
-	if c.Velocity.Down > 0 {
-		if !hasDownPressed {
-			c.Velocity.Down--
-		}
-		newY := c.PosY + c.Velocity.Down
-
-		if newY > (displayHeight - c.Height) {
-			newY = displayHeight - c.Height
-			c.currentColor = crashColor
-		} else {
-			c.currentColor = defaultColor
-		}
-		c.PosY = newY
-	}
+	// Pressing Down should not do anything now
+	//if hasDownPressed {
+	//	c.Velocity.Down = int32(math.Min(float64(c.Velocity.Down+1), float64(c.maxSpeed)))
+	//}
+	//if c.Velocity.Down > 0 {
+	//	if !hasDownPressed {
+	//		c.Velocity.Down--
+	//	}
+	//	newY := c.PosY + c.Velocity.Down
+	//
+	//	if newY > (displayHeight - c.Height) {
+	//		newY = displayHeight - c.Height
+	//		c.currentColor = crashColor
+	//	} else {
+	//		c.currentColor = defaultColor
+	//	}
+	//	 = newY
+	//}
 
 	if hasLeftPressed {
-		c.Velocity.Left = int32(math.Min(float64(c.Velocity.Left+1), float64(c.maxSpeed)))
+		c.Velocity.Left = math.Min(c.Velocity.Left+1, c.maxSpeed)
 	}
 	if c.Velocity.Left > 0 {
 		if !hasLeftPressed {
 			c.Velocity.Left--
 		}
-		newX := c.PosX - c.Velocity.Left
+		newX := c.PosX - int32(c.Velocity.Left)
 		if newX < 0 {
 			newX = 0
-			c.currentColor = crashColor
-		} else {
-			c.currentColor = defaultColor
 		}
 		c.PosX = newX
 	}
 
 	if hasRightPressed {
-		c.Velocity.Right = int32(math.Min(float64(c.Velocity.Right+1), float64(c.maxSpeed)))
+		c.Velocity.Right = math.Min(c.Velocity.Right+1, c.maxSpeed)
 	}
 	if c.Velocity.Right > 0 {
 		if !hasRightPressed {
 			c.Velocity.Right--
 		}
-		newX := c.PosX + c.Velocity.Right
+		newX := c.PosX + int32(c.Velocity.Right)
 		if newX > displayWidth-c.Width {
 			newX = displayWidth - c.Width
-			c.currentColor = crashColor
 		} else {
-			c.currentColor = defaultColor
 		}
 		c.PosX = newX
 	}
 
+	// handle sprite direction/angle
 	if c.Velocity.Left > c.Velocity.Right {
 		c.direction = Left
-		c.angle = float64(c.Velocity.Up*4 - c.Velocity.Down*4)
-		if c.Velocity.Left == c.maxSpeed {
-			if c.currentActionIdx != 3 {
-				c.currentActionIdx = 3
-				c.currentFrameIdx = 0
-			}
-			return
-		}
-		if c.currentActionIdx != 0 {
-			c.currentActionIdx = 0
-			c.currentFrameIdx = 0
-		}
-		return
-	}
-	if c.Velocity.Right > c.Velocity.Left {
+	} else if c.Velocity.Right > c.Velocity.Left {
 		c.direction = Right
-		c.angle = float64(c.Velocity.Down*4 - c.Velocity.Up*4)
-		if c.Velocity.Right == c.maxSpeed {
-			if c.currentActionIdx != 3 {
-				c.currentActionIdx = 3
-				c.currentFrameIdx = 0
-			}
-			return
+	}
+
+	// handle sprite action and frame
+	if isFalling {
+		if c.direction == Left {
+			c.angle = float64(c.Velocity.Up*2 - c.Velocity.Down*2)
+		} else {
+			c.angle = float64(c.Velocity.Down*2 - c.Velocity.Up*2)
 		}
-		if c.currentActionIdx != 0 {
-			c.currentActionIdx = 0
+		return
+	}
+	c.angle = 0
+
+	if c.Velocity.Left == c.maxSpeed || c.Velocity.Right == c.maxSpeed {
+		if c.currentActionIdx != Running {
+			c.currentActionIdx = Running
 			c.currentFrameIdx = 0
 		}
 		return
 	}
-	if c.currentActionIdx != 1 {
-		c.currentActionIdx = 1
+
+	if c.Velocity.Left != c.Velocity.Right {
+		if c.currentActionIdx != Walking {
+			c.currentActionIdx = Walking
+			c.currentFrameIdx = 0
+		}
+		return
+	}
+
+	if c.currentActionIdx != Sitting {
+		c.currentActionIdx = Sitting
 		c.currentFrameIdx = 0
 	}
 }

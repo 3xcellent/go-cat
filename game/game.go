@@ -14,6 +14,7 @@ type Game struct {
 	HasDownPressed         bool
 	HasLeftPressed         bool
 	HasRightPressed        bool
+	HasSpacebarPressed     bool
 	DisplayWidth           int32
 	DisplayHeight          int32
 	currentBackgroundColor uint32
@@ -78,6 +79,8 @@ func (g *Game) HandleKeyboardEvent(event *sdl.KeyboardEvent) {
 		g.HasLeftPressed = event.Type == sdl.KEYDOWN
 	case sdl.SCANCODE_RIGHT:
 		g.HasRightPressed = event.Type == sdl.KEYDOWN
+	case sdl.SCANCODE_SPACE:
+		g.HasSpacebarPressed = event.Type == sdl.KEYDOWN
 	default:
 	}
 }
@@ -86,7 +89,7 @@ func (g *Game) Stop() {
 	g.running = false
 }
 func (g *Game) Arrange() {
-	g.cat.Move(g.HasUpPressed, g.HasDownPressed, g.HasLeftPressed, g.HasRightPressed, g.DisplayWidth-200, g.DisplayHeight-200)
+	g.cat.Move(g.HasUpPressed, g.HasDownPressed, g.HasLeftPressed, g.HasRightPressed, g.HasSpacebarPressed, g.DisplayWidth-200, g.DisplayHeight-200)
 }
 func (g *Game) Draw() {
 	g.DrawBackground()
