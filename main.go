@@ -8,10 +8,12 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+const targetFramesPerSecond = int64(30)
+
 var targetFramerate time.Duration
 
 func init() {
-	targetFramerate = time.Second / time.Duration(15)
+	targetFramerate = time.Second / time.Duration(targetFramesPerSecond)
 }
 
 func main() {

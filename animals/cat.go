@@ -80,8 +80,9 @@ func CreateCat(renderer *sdl.Renderer) *Cat {
 	}
 	img.Free()
 
+	// TODO the size, speed, etc need to be relative to display size eventually
 	cat := &Cat{
-		maxSpeed:         8 * 2,
+		maxSpeed:         32,
 		renderer:         renderer,
 		texture:          texture,
 		spriteWidth:      imgWidth,
@@ -92,8 +93,8 @@ func CreateCat(renderer *sdl.Renderer) *Cat {
 		currentActionIdx: Sitting,
 		PosX:             100,
 		PosY:             150,
-		Height:           20,
-		Width:            15,
+		Height:           16,
+		Width:            8,
 	}
 	// TODO instead of having LoadAnimationFrames set the frames on the object after the fact, it should
 	//  be set above and the the func returns the map
@@ -188,7 +189,7 @@ func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed
 		c.currentActionIdx = Running
 		c.currentFrameIdx = 11
 		c.JumpedAt = time.Now()
-		c.Velocity.Up = c.Velocity.Up + c.maxSpeed*2
+		c.Velocity.Up = c.Velocity.Up + c.maxSpeed*3
 	}
 	if c.Velocity.Up > 0 {
 		// the effect here is that holding jump will jump a little higher
@@ -267,9 +268,9 @@ func (c *Cat) Move(hasUpPressed, hasDownPressed, hasLeftPressed, hasRightPressed
 	// handle sprite action and frame
 	if isFalling {
 		if c.direction == Left {
-			c.angle = float64(c.Velocity.Up*2 - c.Velocity.Down*2)
+			c.angle = float64(c.Velocity.Up - c.Velocity.Down)
 		} else {
-			c.angle = float64(c.Velocity.Down*2 - c.Velocity.Up*2)
+			c.angle = float64(c.Velocity.Down - c.Velocity.Up)
 		}
 		return
 	}

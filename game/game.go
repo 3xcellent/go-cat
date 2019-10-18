@@ -27,11 +27,11 @@ func CreateGame(width int32, height int32, renderer *sdl.Renderer) *Game {
 		DisplayHeight:          height,
 		currentBackgroundColor: defaultBackgroundColor,
 		renderer:               renderer,
-		cat:                    animals.CreateCat(renderer),
 	}
 }
 
 func (g *Game) Start() {
+	g.cat = animals.CreateCat(g.renderer)
 	g.running = true
 }
 
